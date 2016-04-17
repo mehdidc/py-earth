@@ -283,6 +283,8 @@ def test_pickle_compatibility():
     model = earth.fit(X, y)
     model_copy = pickle.loads(pickle.dumps(model))
     assert_true(model_copy == model)
+    print(model.predict(X))
+    print(model_copy.predict(X))
     assert_true(
         numpy.all(model.predict(X) == model_copy.predict(X)))
     assert_true(model.basis_[0] is model.basis_[1]._get_root())
