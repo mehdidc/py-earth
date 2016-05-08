@@ -315,9 +315,10 @@ cdef class KnotSearchState:
     def __init__(KnotSearchState self, FLOAT_t alpha, FLOAT_t beta, FLOAT_t lambda_, 
                  FLOAT_t mu, FLOAT_t upsilon, FLOAT_t phi, FLOAT_t phi_next, 
                  INDEX_t ord_idx, INDEX_t idx, FLOAT_t zeta_squared):
-        self.alpha = alpha
-        self.beta = beta
-        self.lambda_ = lambda_
+
+        self.alpha = alpha#MC:equation 1 of jasonNotes
+        self.beta = beta#MC:equation 1 of jasonNotes
+        self.lambda_ = lambda_#MC:equation 1 of jasonNotes
         self.mu = mu
         self.upsilon = upsilon
         self.phi = phi
@@ -386,6 +387,9 @@ cdef wdot(FLOAT_t[:] w, FLOAT_t[:] x1, FLOAT_t[:] x2, INDEX_t q):
 cdef inline void fast_update(PredictorDependentData predictor, SingleOutcomeDependentData outcome, 
                         KnotSearchWorkingData working, FLOAT_t[:] p, INDEX_t q, INDEX_t m, INDEX_t r) except *:
     
+    #MC : this is the stuff used to compute squared error for each knot location based on the next knot location
+    #MC : q is the number of basis function so far
+
     # Calculate all quantities depending on the rows such that
     # phi >= x > phi_next.
     # Before this while loop, x[idx] is the greatest x such that x <= phi.
@@ -429,16 +433,16 @@ cdef inline void fast_update(PredictorDependentData predictor, SingleOutcomeDepe
             nu += delta_nu
             delta_xi = delta_nu * xidx
             xi += delta_xi # (outcome.weight.w[idx] ** 2) * (p[idx] ** 2) * predictor.x[idx]
-            delta_rho = delta_xi * xidx
+            delta_rho = delta_xi * xidx #MC:Ok
             rho += delta_rho # (outcome.weight.w[idx] ** 2) * (p[idx] ** 2) * (predictor.x[idx] ** 2)
-            delta_tau = (widx ** 2) * yidx * pidx
-            tau += delta_tau
-            delta_sigma = delta_tau * xidx
-            sigma += delta_sigma # (outcome.weight.w[idx] ** 2) * outcome.y[idx] * p[idx] * predictor.x[idx]
-            delta_lambda += delta_xi # (outcome.weight.w[idx] ** 2) * (p[idx] ** 2) * predictor.x[idx]
-            delta_mu += delta_nu #(outcome.weight.w[idx] ** 2) * (p[idx] ** 2)
-            delta_upsilon += delta_tau # (outcome.weight.w[idx] ** 2) * outcome.y[idx] * p[idx]
-            for j in range(q):
+            delta_tau = (widx ** 2) * yidx * pidx#MC:ok
+            tau += delta_tau#MC:ok
+            delta_sigma = delta_tau * xidx#MC:ok
+            sigma += delta_sigma # (outcome.weight.w[idx] ** 2) * outcome.y[idx] * p[idx] * predictor.x[idx]#MC:ok
+            delta_lambda += delta_xi # (outcome.weight.w[idx] ** 2) * (p[idx] ** 2) * predictor.x[idx]#MC:ok
+            delta_mu += delta_nu #(outcome.weight.w[idx] ** 2) * (p[idx] ** 2) #MC:ok
+            delta_upsilon += delta_tau # (outcome.weight.w[idx] ** 2) * outcome.y[idx] * p[idx] #MC:ok
+            for j in range(q): #MC:these are only for gamma
                 qidx = outcome.weight.Q_t[j,idx]
                 delta_psi = qidx * widx * pidx
                 delta_chi = delta_psi * xidx
@@ -454,7 +458,8 @@ cdef inline void fast_update(PredictorDependentData predictor, SingleOutcomeDepe
 
     # Update alpha, beta, and gamma
     working.state.alpha += sigma - working.state.phi_next * tau + \
-        (working.state.phi - working.state.phi_next) * working.state.upsilon
+        (working.state.phi - working.state.phi_next) * working.state.upsilon # MC:upsilon is in working because
+        # we keep updating it along fast_update cols (it accumulates) #MC:ok
     working.state.beta += rho + (working.state.phi_next ** 2) * nu - 2 * working.state.phi_next * xi + \
         2 * (working.state.phi - working.state.phi_next) * working.state.lambda_ + \
         (working.state.phi_next ** 2 - working.state.phi ** 2) * working.state.mu
@@ -470,10 +475,10 @@ cdef inline void fast_update(PredictorDependentData predictor, SingleOutcomeDepe
     
     # Compute epsilon_squared and zeta_squared
     if working.state.beta > 0:
-        gamma_squared = dot(working.gamma, working.gamma, q)
-        epsilon_squared = working.state.beta - gamma_squared
+        gamma_squared = dot(working.gamma, working.gamma, q) #MC:ok
+        epsilon_squared = working.state.beta - gamma_squared#MC:ok
         if epsilon_squared > 0:
-            theta_gamma = dot(working.gamma, outcome.theta, q)
+            theta_gamma = dot(working.gamma, outcome.theta, q)# MC:why using theta?
             zeta_epsilon = working.state.alpha - theta_gamma
 #             if (abs(zeta_epsilon) / abs(working.state.alpha - theta_gamma) > tol) \
 #                 or (epsilon_squared / abs(working.state.beta + gamma_squared) > tol):
@@ -509,9 +514,10 @@ cdef inline void fast_update(PredictorDependentData predictor, SingleOutcomeDepe
     # Update kappa, lambda, mu, and upsilon
     for j in range(q):
         working.kappa[j] += working.delta_kappa[j]
-    working.state.lambda_ += delta_lambda
-    working.state.mu += delta_mu
-    working.state.upsilon += delta_upsilon
+    # MC:those are used in the sums involving x>phi_next it is why we need an accumulating 'state'
+    working.state.lambda_ += delta_lambda#MC:ok
+    working.state.mu += delta_mu#MC:ok
+    working.state.upsilon += delta_upsilon#MC:ok
     
 cpdef tuple knot_search(KnotSearchData data, FLOAT_t[:] candidates, FLOAT_t[:] p, INDEX_t q, INDEX_t m, 
                  INDEX_t r, INDEX_t n_outcomes):
@@ -537,6 +543,10 @@ cpdef tuple knot_search(KnotSearchData data, FLOAT_t[:] candidates, FLOAT_t[:] p
     cdef FLOAT_t phi
     cdef KnotSearchWorkingData working
     cdef INDEX_t j, i
+    
+    #MC : workings is a list of KnotSearchWorkingData, it is temporary/working data
+    # used for each outcome.
+
     for j in range(n_outcomes):
         working = workings[j]
         working.state.phi_next = phi_next
@@ -582,21 +592,24 @@ cpdef tuple knot_search(KnotSearchData data, FLOAT_t[:] candidates, FLOAT_t[:] p
             # Update workingdata for the new candidate knot
             fast_update(predictor, outcome, working, p, q, m, r)
             
+            # MC : I guess it should not happen because adding a term should only improve mse (lower mse), not increase it
+            # because we have always the possibility of assigning zero weight to the new term
+
             if working.state.zeta_squared >= outcome.sse_:
                 # Sometimes this can happen because of numerical issues in 
                 # the fast update process.  These occur when the new potential
                 # predictor column is close to linear dependence on previous 
                 # columns.  In that case, correct everything so that we can move
                 # on.
-#                 print 'this is a problem!'
-#                 print 'zeta_squared =', working.state.zeta_squared
-#                 print 'omega_minus_theta_squared =', outcome.sse_
-#                 print i
-#                 print 'epsilon_squared =',  working.state.beta - np.dot(working.gamma[:q], working.gamma[:q])
-#                 print 'alpha =', working.state.alpha
-#                 print 'gamma * theta =', dot(working.gamma, outcome.theta, q)
-#                 print 'beta =', working.state.beta
-#                 print 'gamma^2 = ', dot(working.gamma, working.gamma, q)
+                print 'this is a problem!'
+                print 'zeta_squared =', working.state.zeta_squared
+                print 'omega_minus_theta_squared =', outcome.sse_
+                print i
+                print 'epsilon_squared =',  working.state.beta - np.dot(working.gamma[:q], working.gamma[:q])
+                print 'alpha =', working.state.alpha
+                print 'gamma * theta =', dot(working.gamma, outcome.theta, q)
+                print 'beta =', working.state.beta
+                print 'gamma^2 = ', dot(working.gamma, working.gamma, q)
                 working.state.zeta_squared = 0.
                 working.state.alpha = dot(working.gamma, outcome.theta, q)
                 working.state.beta = dot(working.gamma, working.gamma, q)

@@ -139,7 +139,7 @@ cdef class ForwardPasser:
         self.n_outcomes = self.y.shape[1]
         n_predictors = self.X.shape[1]
         n_weights = self.sample_weight.shape[1]
-        self.workings = []
+        self.workings = [] #MC : Used in knot search, it is a list of KnotSearchWorkingData, one for each outcome
         self.outcome = MultipleOutcomeDependentData.alloc(self.y, self.sample_weight, self.m, 
                                                           self.n_outcomes, self.max_terms + 4, 
                                                           self.zero_tol)
@@ -382,7 +382,7 @@ cdef class ForwardPasser:
                     p = self.B[:, parent_idx]
                     q = k + 1
                 
-                b = p * predictor.x
+                b = p * predictor.x # MC : first term in friedman equation 51
                 if missing_flag and not covered:
                     b[missing[:, variable] == 1] = 0
                 linear_dependence = self.orthonormal_update(b)
@@ -417,10 +417,13 @@ cdef class ForwardPasser:
                         # Find the best knot location for this parent and
                         # variable combination
                         # Assemble the knot search data structure
-                        constant = KnotSearchReadOnlyData(predictor, self.outcome)
-                        search_data = KnotSearchData(constant, self.workings, q)
+                        constant = KnotSearchReadOnlyData(predictor, self.outcome) # MC : this is just a structure that
+                        # contains the tuple (predictor, self.outcome), not sure what it is about ?
+                        search_data = KnotSearchData(constant, self.workings, q) # MC : this is just a structure
+                        # that contains (constant, self.workings, q)
 
                         # Run knot search
+                        #MC : the real stuff happends here
                         knot, knot_idx, mse = knot_search(search_data, candidates, p, q, 
                                                           self.m, len(candidates), self.n_outcomes)
                         mse /= self.total_weight
