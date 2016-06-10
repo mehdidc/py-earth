@@ -29,6 +29,10 @@ cdef class ForwardPasser:
     cdef long fast_h
     cdef bint allow_missing
     cdef int verbose
+    cdef int max_variables
+    cdef bint allow_random_variables
+    cdef rng
+    cdef int random_state
 
     # Input data
     cdef cnp.ndarray X

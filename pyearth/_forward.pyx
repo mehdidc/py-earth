@@ -88,6 +88,10 @@ cdef class ForwardPasser:
         self.zero_tol = kwargs.get('zero_tol', 1e-12)
         self.allow_missing = kwargs.get("allow_missing", False)
         self.verbose = kwargs.get("verbose", 0)
+        self.allow_random_variables = kwargs.get("allow_random_variables", False)
+        self.max_variables = kwargs.get("max_variables", self.n)
+        self.rng = kwargs.get("random_state", 42)
+        self.rng = np.random.RandomState(self.random_state)
         if self.allow_missing:
             self.has_missing = np.any(self.missing, axis=0).astype(BOOL)
             
@@ -331,6 +335,11 @@ cdef class ForwardPasser:
                 variables = range(self.n)
             else:
                 variables = range(self.n)
+
+            if self.allow_random_variables:
+                variables = self.rng.choice(variables, size=self.max_variables, replace=False)
+            else:
+                pass
             
             parent_degree = parent.effective_degree()
             

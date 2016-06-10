@@ -251,9 +251,12 @@ class Earth(BaseEstimator, RegressorMixin, TransformerMixin):
         'max_terms', 'max_degree', 'allow_missing', 'penalty',
         'endspan_alpha', 'endspan',
         'minspan_alpha', 'minspan',
-        'thresh', 'zero_tol', 'min_search_points', 
+        'thresh', 'zero_tol', 'min_search_points',
         'check_every', 'allow_linear',
-        'use_fast', 'fast_K', 'fast_h', 'verbose'
+        'use_fast', 'fast_K', 'fast_h',
+        'allow_random_variables', 'max_variables',
+        'random_state',
+        'verbose'
     ])
     pruning_pass_arg_names = set([
         'penalty', 'verbose'
@@ -265,7 +268,10 @@ class Earth(BaseEstimator, RegressorMixin, TransformerMixin):
                  thresh=None, zero_tol=None, min_search_points=None, 
                  check_every=None,
                  allow_linear=None, use_fast=None, fast_K=None,
-                 fast_h=None, smooth=None, enable_pruning=True, verbose=0):
+                 fast_h=None, smooth=None, enable_pruning=True, 
+                 allow_random_variables=None, max_variables=None,
+                 random_state=None,
+                 verbose=0):
         kwargs = {}
         call = locals()
         for name in self._get_param_names():
